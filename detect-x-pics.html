@@ -32,6 +32,50 @@
       }
     }
 
+    // Função para pré-processar a imagem
+    async function preprocessImage(imageElement) {
+      const originalWidth = imageElement.width;
+      const originalHeight = imageElement.height;
+      const targetSize = 224;
+
+      // Calcule as novas dimensões mantendo a proporção
+      let newWidth, newHeight;
+      if (originalWidth > originalHeight) {
+        newWidth = targetSize;
+        newHeight = Math.round((originalHeight / originalWidth) * targetSize);
+      } else {
+        newHeight = targetSize;
+        newWidth = Math.round((originalWidth / originalHeight) * targetSize);
+      }
+
+      // Redimensiona a imagem
+      const resizedImage = tf.image.resizeBilinear(tf.browser.fromPixels(imageElement), [newHeight, newWidth]);
+
+      // Crie uma imagem de fundo preta do tamanho desejado
+      const paddedImage = tf.zeros([targetSize, targetSize, 3]);
+
+      // Preencher manualmente os pixels
+      const yStart = Math.floor((targetSize - newHeight) / 2);
+      const xStart = Math.floor((targetSize - newWidth) / 2);
+
+      const resizedData = await resizedImage.data();
+
+      // Preencher o tensor paddedImage com os dados de resizedImage
+      const paddedImageData = paddedImage.dataSync();
+      for (let y = 0; y < newHeight; y++) {
+        for (let x = 0; x < newWidth; x++) {
+          const idx = (y * newWidth + x) * 3; // Índice de RGB
+          const paddedIdx = ((y + yStart) * targetSize + (x + xStart)) * 3; // Índice em paddedImage
+          paddedImageData[paddedIdx] = resizedData[idx];
+          paddedImageData[paddedIdx + 1] = resizedData[idx + 1];
+          paddedImageData[paddedIdx + 2] = resizedData[idx + 2];
+        }
+      }
+
+      // Retorne o tensor preenchido e normalizado, garantindo a forma correta
+      return paddedImage.expandDims(0).div(255); // Adiciona a dimensão do batch e normaliza
+    }
+
     imageElement.onload = async function () {
       try {
         console.log('Imagem carregada com sucesso!');
@@ -42,12 +86,12 @@
           return;
         }
 
-        // Pré-processa a imagem (redimensiona e converte em tensor)
+        // Pré-processa a imagem
         console.log('Pré-processando a imagem...');
-        const processedImage = tf.browser.fromPixels(imageElement)
-          .resizeBilinear([224, 224]) // redimensiona para [224, 224] para o modelo MobileNet
-          .expandDims() // adiciona uma dimensão extra para representar o batch (requisito do TensorFlow)
-          .div(255); // normaliza a imagem entre 0 e 1
+        const processedImage = await preprocessImage(imageElement);
+
+        // Verifique a forma do tensor processado
+        console.log('Forma do tensor processado:', processedImage.shape);
 
         console.log('Imagem processada. Fazendo a classificação...');
 
@@ -64,6 +108,7 @@
 
     imageElement.onerror = function () {
       console.error('Erro ao carregar a imagem.');
-    };  </script>
+    };  
+  </script>
 </body>
 </html>
