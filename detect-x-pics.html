@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NSFWJS - Manual Loading</title>
+</head>
+<body>
+  <h1>NSFWJS Custom Demo</h1>
+  <img id="image" src="./msfw-lib/Kwxetau.jpg" width="400px" />
+  <div id="results"></div>
+
+  <!-- TensorFlow.js -->
+  <!-- <script src="./msfw-lib/tf.min.js" type="text/javascript"></script> -->
+  <script src="https://unpkg.com/@tensorflow/tfjs@2.6.0/dist/tf.min.js" type="text/javascript"></script>
+  <!-- <script src="https://unpkg.com/@tensorflow/tfjs@2.6.0" type="text/javascript"></script> -->
+
+  <script>
+    const imageElement = document.getElementById('image');
+    const resultsDiv = document.getElementById('results');
+
+    // Função para carregar o modelo NSFW manualmente
+    async function loadModel() {
+      try {
+        tf.setBackend('cpu');
+        console.log('Carregando modelo NSFW...');
+        const model = await tf.loadGraphModel('./msfw-lib/model.json');
+        console.log('Modelo NSFW carregado com sucesso!');
+        return model;
+      } catch (error) {
+        console.error('Erro ao carregar o modelo:', error);
+      }
+    }
+
+    imageElement.onload = async function () {
+      try {
+        console.log('Imagem carregada com sucesso!');
+        const model = await loadModel();
+
+        if (!model) {
+          console.error('O modelo não foi carregado corretamente.');
+          return;
+        }
+
+        // Pré-processa a imagem (redimensiona e converte em tensor)
+        console.log('Pré-processando a imagem...');
+        const processedImage = tf.browser.fromPixels(imageElement)
+          .resizeBilinear([224, 224]) // redimensiona para [224, 224] para o modelo MobileNet
+          .expandDims() // adiciona uma dimensão extra para representar o batch (requisito do TensorFlow)
+          .div(255); // normaliza a imagem entre 0 e 1
+
+        console.log('Imagem processada. Fazendo a classificação...');
+
+        // Realiza a classificação
+        const predictions = await model.predict(processedImage).data();
+
+        // Exibe o resultado
+        console.log('Predictions:', predictions);
+        resultsDiv.innerHTML = `Predictions: ${JSON.stringify(predictions)}`;
+      } catch (error) {
+        console.error('Erro durante a classificação:', error);
+      }
+    };
+
+    imageElement.onerror = function () {
+      console.error('Erro ao carregar a imagem.');
+    };  </script>
+</body>
+</html>
